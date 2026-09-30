@@ -12,7 +12,10 @@
         <img src="narra.png" alt="" class="logo">
         Narra
       </button>
-      <span class="pill" id="pill" data-tauri-drag-region>Off</span>
+      <div class="head-right">
+        <button class="note-btn" id="noteBtn" type="button" aria-label="Note for today"></button>
+        <span class="pill" id="pill" data-tauri-drag-region>Off</span>
+      </div>
     </header>
 
     <!-- Normal state -->
@@ -34,6 +37,16 @@
         <input type="time" id="forgotTime" required>
         <button type="submit" class="punch small" id="forgotSave">Time In</button>
         <button type="button" class="ghost" id="forgotCancel" aria-label="Cancel">✕</button>
+      </div>
+    </form>
+
+    <!-- Today's note -->
+    <form class="main forgot" id="notePane" hidden>
+      <label for="noteInput">Note for today · only you see this</label>
+      <div class="row">
+        <input type="text" id="noteInput" maxlength="500" placeholder="e.g. Clocked in early for a call" autocomplete="off">
+        <button type="submit" class="punch small" id="noteSave">Save</button>
+        <button type="button" class="ghost" id="noteCancel" aria-label="Cancel">✕</button>
       </div>
     </form>
 

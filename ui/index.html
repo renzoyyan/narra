@@ -43,6 +43,16 @@
           <div class="state" id="heroState">Off the clock</div>
           <div class="timer" id="timer">0:00:00</div>
           <div class="muted" id="heroNote">&nbsp;</div>
+          <div class="day-note" id="todayNoteBox">
+            <div class="note-field">
+              <textarea id="todayNote" rows="1" maxlength="500" placeholder="Add a note for today (only you see this)" aria-label="Note for today"></textarea>
+              <span class="note-saved" id="todayNoteSaved" hidden>Saved</span>
+            </div>
+            <div class="note-actions" id="todayNoteActions" hidden>
+              <button type="button" id="todayNoteSave">Save</button>
+              <button type="button" class="ghost icon" id="todayNoteCancel" aria-label="Cancel">✕</button>
+            </div>
+          </div>
         </div>
         <div class="hero-side">
           <button class="punch" id="punchBtn">Time In</button>
@@ -106,7 +116,7 @@
         </div>
         <div class="summary" id="sheetSummary"></div>
         <table class="sheet">
-          <thead><tr><th>Day</th><th>Time in</th><th>Time out</th><th>Time in</th><th>Time out</th><th class="num">Hours</th><th></th></tr></thead>
+          <thead><tr><th>Day</th><th>Time in</th><th>Time out</th><th>Time in</th><th>Time out</th><th class="num">Hours</th><th></th><th></th></tr></thead>
           <tbody id="sheetRows"></tbody>
         </table>
       </div>
@@ -215,6 +225,20 @@
       <div class="row end">
         <button type="button" class="ghost" id="dayCancel">Cancel</button>
         <button type="submit" id="daySave">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Day note -->
+  <dialog id="noteDialog" class="note-dialog">
+    <form method="dialog" id="noteForm">
+      <h2 id="noteTitle">Note</h2>
+      <p class="muted small">Only you see this. It isn't added to the PDF or the Google Sheet.</p>
+      <textarea id="noteText" rows="4" maxlength="500" aria-label="Note"></textarea>
+      <div class="row end">
+        <button type="button" class="ghost" id="noteDelete">Delete</button>
+        <button type="button" class="ghost" id="noteCancel">Cancel</button>
+        <button type="submit" id="noteSave">Save</button>
       </div>
     </form>
   </dialog>

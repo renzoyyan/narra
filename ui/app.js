@@ -135,6 +135,14 @@ function renderToday(now = Date.now()) {
   }
   $('heroNote').textContent = note;
 
+  // Only touch the box when the note changed: fitNote forces a layout.
+  const noteBox = $('todayNote');
+  const saved = noteFor(view, t.key);
+  if (!noteEditing && noteBox.value !== saved) {
+    noteBox.value = saved;
+    fitNote(noteBox);
+  }
+
   const entries = $('entries');
   entries.innerHTML = '';
   for (const s of t.sessions) {
@@ -313,9 +321,12 @@ function renderTimesheets() {
       if (d.sessions.length > 2) slots[3] += ` (+${d.sessions.length - 2} more)`;
       cells = slots.map(v => `<td>${v || (d.weekend ? '' : '—')}</td>`).join('');
     }
+    const note = noteFor(view, d.date);
     tr.innerHTML = `<td>${d.label}</td>${cells}<td class="num">${hours(d.hours)}</td>` +
+      `<td class="note-cell"><button type="button" class="row-note${note ? ' has-note' : ''}" title="${esc(note || 'Add a note')}" aria-label="${note ? 'Edit note' : 'Add a note'} for ${d.label}">${NOTE_ICON}</button></td>` +
       `<td class="edit-cell"><button type="button" class="row-edit" aria-label="Edit ${d.label}">✎ Edit</button></td>`;
     tr.onclick = () => openEditor(d.date);
+    tr.querySelector('.row-note').onclick = e => { e.stopPropagation(); openNoteDialog(d.date); };
     if (d.date === justSaved) {
       tr.classList.add('saved');
       tr.querySelector('.edit-cell').innerHTML = '<span class="saved-tag">✓ Saved</span>';
@@ -695,6 +706,68 @@ $('obSheetLocal').onclick = e => working(e.currentTarget, 'Setting up…', async
   finishOnboarding();
 });
 
+// ---- Day notes ----
+
+function fitNote(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+// While editing, Save / ✕ show and the 1 s re-render leaves the text alone.
+let noteEditing = false;
+function setNoteEditing(on) {
+  noteEditing = on;
+  $('todayNoteActions').hidden = !on;
+  if (on) $('todayNoteSaved').hidden = true;
+}
+
+function cancelTodayNote() {
+  setNoteEditing(false);
+  $('todayNote').blur();
+  renderToday();
+}
+
+let noteSavedTimer = null;
+async function saveTodayNote() {
+  const box = $('todayNote');
+  const key = today().key;
+  const text = box.value.trim();
+  try {
+    if (text !== noteFor(view, key)) view = await saveNote(invoke, key, text);
+    setNoteEditing(false);
+    box.blur();
+    renderAll();
+    const tag = $('todayNoteSaved');
+    tag.hidden = false;
+    clearTimeout(noteSavedTimer);
+    noteSavedTimer = setTimeout(() => { tag.hidden = true; }, 2000);
+  } catch (e) {
+    toast(String(e), true); // still editing, so what they typed stays
+  }
+}
+
+let noteDate = null;
+function openNoteDialog(date) {
+  noteDate = date;
+  const note = noteFor(view, date);
+  $('noteTitle').textContent = prettyDate(date, { weekday: 'long', month: 'long', day: 'numeric' });
+  $('noteText').value = note;
+  $('noteDelete').hidden = !note;
+  $('noteDialog').showModal();
+  $('noteText').focus();
+}
+
+async function saveDialogNote(text) {
+  try {
+    view = await saveNote(invoke, noteDate, text);
+    $('noteDialog').close();
+    toast(text.trim() ? 'Note saved.' : 'Note deleted.');
+    renderAll();
+  } catch (e) {
+    toast(String(e), true);
+  }
+}
+
 // ---- Actions ----
 
 function renderAll() {
@@ -746,11 +819,14 @@ async function punch(at = null) {
     return;
   }
   holidayArmed = false;
+  const sessions = sessionCount(view);
   busy = true;
   try {
     view = await punchNow(invoke, t, at);
     const now = today();
-    toast(now.open ? `Timed in at ${clock(now.since, PH)} Manila (${clock(now.since)} New York)` : `Timed out. ${hours(now.hours)} hrs today.`);
+    toast(now.open ? `Timed in at ${clock(now.since, PH)} Manila (${clock(now.since)} New York)`
+      : sessionCount(view) < sessions ? 'Stopped within a minute, so nothing was logged.'
+      : `Timed out. ${hours(now.hours)} hrs today.`);
   } catch (e) {
     toast(String(e), true);
   } finally {
@@ -922,6 +998,26 @@ $('remindHours').onchange = saveReminder;
 $('testReminder').onclick = () =>
   invoke('test_reminder').then(() => toast('Sent. If nothing appeared, allow Narra in System Settings → Notifications.'))
     .catch(err => toast(String(err), true));
+
+$('todayNote').addEventListener('input', e => fitNote(e.target));
+$('todayNote').addEventListener('focus', () => setNoteEditing(true));
+// Clicking away keeps unsaved changes (and the buttons) in place; an untouched note just closes.
+$('todayNote').addEventListener('blur', e => {
+  if ($('todayNoteBox').contains(e.relatedTarget)) return;
+  if (e.target.value.trim() === noteFor(view, today().key)) setNoteEditing(false);
+});
+$('todayNote').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveTodayNote(); }
+  if (e.key === 'Escape') { e.preventDefault(); cancelTodayNote(); }
+});
+$('todayNoteSave').onclick = saveTodayNote;
+$('todayNoteCancel').onclick = cancelTodayNote;
+$('noteForm').onsubmit = e => { e.preventDefault(); saveDialogNote($('noteText').value); };
+$('noteDelete').onclick = () => saveDialogNote('');
+$('noteCancel').onclick = () => $('noteDialog').close();
+$('noteText').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $('noteForm').requestSubmit(); }
+});
 
 listen('tray-punch', () => punch());
 listen('navigate', e => showView(e.payload));

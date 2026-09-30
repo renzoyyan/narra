@@ -255,6 +255,27 @@ function nextWeekdayHoliday(lists, key) {
     .sort((a, b) => a.date.localeCompare(b.date))[0];
 }
 
+/** Sessions across all days; a Time Out that lowers it dropped a same-minute session. */
+function sessionCount(view) {
+  return Object.values(view.days).reduce((n, d) => n + d.sessions.length, 0);
+}
+
+/** A day's private note ('' when none). Notes never go into the PDF or the sheet. */
+function noteFor(view, date) {
+  return (view && view.notes && view.notes[date]) || '';
+}
+
+/** Save (or, with blank text, delete) a day's note; returns the new view. */
+function saveNote(invoke, date, text) {
+  return invoke('save_note', { date, text });
+}
+
+/** Sticky-note icon for note buttons (fill the first path to mark "has a note"). */
+const NOTE_ICON = '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" fill="none" ' +
+  'stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M3 2.5h10a.5.5 0 0 1 .5.5v6.8L9.8 13.5H3a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5Z"/>' +
+  '<path d="M9.5 13.5V10h4"/><path d="M5 5.5h6M5 8h4"/></svg>';
+
 /** Time In / Time Out through the backend; returns the new view. */
 function punchNow(invoke, t, at = null) {
   const kind = t.open ? 'out' : 'in';

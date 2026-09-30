@@ -56,6 +56,7 @@ struct View {
     name: String,
     monthly_rate: Option<f64>,
     days: BTreeMap<String, Day>,
+    notes: BTreeMap<String, String>,
     backup_path: String,
     mode: String,
     has_sheet: bool,
@@ -98,6 +99,7 @@ fn view(app: &AppHandle) -> View {
         name: store.name.clone(),
         monthly_rate: store.monthly_rate,
         days: store.days.clone(),
+        notes: store.notes.clone(),
         backup_path: documents(app).map(|d| d.join(BACKUP_FILE).display().to_string()).unwrap_or_default(),
         mode: store.mode.clone(),
         has_sheet: store.has_sheet(),
@@ -317,6 +319,7 @@ fn load(app: AppHandle) -> View {
 #[tauri::command]
 fn punch(app: AppHandle, kind: String, date: String, at: Option<i64>) -> Result<View, String> {
     let now = now_ms();
+    let picked = at.is_some();
     let at = to_minute(at.unwrap_or(now));
     if at > now + 60_000 {
         return Err("That time is in the future.".into());
@@ -328,10 +331,9 @@ fn punch(app: AppHandle, kind: String, date: String, at: Option<i64>) -> Result<
         return Err(format!("Bad date: {date}"));
     }
     update_data(&app, |s| {
-        let open = s.open_session();
         match kind.as_str() {
             "in" => {
-                if open.is_some() {
+                if s.open_session().is_some() {
                     return Err("You're already timed in. Time out first.".into());
                 }
                 if s.sheet_mode() {
@@ -346,14 +348,7 @@ fn punch(app: AppHandle, kind: String, date: String, at: Option<i64>) -> Result<
                 Ok(())
             }
             "out" => {
-                let Some((d, i)) = open else {
-                    return Err("You're not timed in.".into());
-                };
-                let session = &mut s.days.get_mut(&d).unwrap().sessions[i];
-                if at <= session.start {
-                    return Err("Time out must be after your time in.".into());
-                }
-                session.end = Some(at);
+                let d = s.time_out(at, picked)?;
                 if s.sheet_mode() {
                     s.dirty.insert(d);
                 }
@@ -394,6 +389,16 @@ fn save_day(app: AppHandle, date: String, day: Day) -> Result<View, String> {
         Ok(())
     })
     .map(|(_, view)| view)
+}
+
+/// Set or clear the private note on a day. Notes stay in Narra: not in the PDF, and the
+/// date isn't marked for sheet sync.
+#[tauri::command]
+fn save_note(app: AppHandle, date: String, text: String) -> Result<View, String> {
+    if !valid_date(&date) {
+        return Err(format!("Bad date: {date}"));
+    }
+    update_data(&app, |s| s.set_note(&date, &text)).map(|(_, view)| view)
 }
 
 /// Add days imported from the Google Sheet. Days already in Narra are kept as they are.
@@ -836,6 +841,7 @@ fn main() {
             load,
             punch,
             save_day,
+            save_note,
             import_days,
             set_profile,
             save_sheet_link,
