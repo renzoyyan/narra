@@ -1,13 +1,35 @@
 # Narra
 
-Menu-bar time clock (Tauri) that writes Time In / Time Out into the
-"Biweekly Timesheet (Monthly)" Google Sheet, marks PH holidays as 8 hours, and shows
-every timesheet period (including archived months).
+A menu-bar time clock for the biweekly timesheet: Time In / Time Out, a desktop widget,
+PH holidays credited as 8 hours, expected pay, and a PDF in the usual timesheet layout.
+Works on its own ("On this Mac"), or kept in sync with a Google Sheet.
 
-- `apps-script/Code.gs`: bound to the sheet (Extensions → Apps Script). JSON API for the app
-  plus a "🌼 Narra" menu in the sheet.
-- `src-tauri/`: Rust backend. Local store, offline punch queue, Nager.Date holidays, tray.
+## Install (no building needed)
+
+1. Download **`Narra_x.y.z_universal.dmg`** from the
+   [latest release](https://github.com/renzoyyan/narra/releases/latest)
+   (or the copy shared with you). It runs on Apple Silicon and Intel Macs.
+2. Open the `.dmg` and drag **Narra** into **Applications**.
+3. Open Narra from Applications. macOS will say it can't verify the app, because it
+   isn't signed with a paid Apple Developer account. One time only:
+   - Click **Done** (not "Move to Trash").
+   - Open **System Settings → Privacy & Security**, scroll down to
+     *"Narra" was blocked…*, click **Open Anyway**, then **Open Anyway** again and enter
+     your Mac password.
+4. Narra opens and asks for your name and monthly rate, then where your timesheet
+   lives. Pick **On this Mac** unless you want a Google Sheet kept up to date too
+   (the app walks you through that).
+
+After that it lives in the menu bar (the tree icon). Closing the window keeps it running.
+
+> Terminal alternative for step 3: `xattr -dr com.apple.quarantine /Applications/Narra.app`
+
+## Project layout
+
 - `ui/`: plain HTML/CSS/JS front end (no bundler).
+- `src-tauri/`: Rust backend (store, holidays, tray, widget, notifications).
+- `apps-script/Code.gs`: the optional Google Sheets bridge users paste into their sheet.
+- `scripts/`: icon generation and `reset-narra.sh` for testing onboarding.
 
 ## How it works
 
@@ -24,12 +46,15 @@ every timesheet period (including archived months).
 - Pay (same formula as the template): `rate / 2 + 1.3 × (rate / 160) × overtime`, overtime =
   hours beyond 8 × weekdays in the period. The app shows the formula with the real numbers.
 
-## Build
+## Build from source (developers)
+
+Needs Rust (`rustup`), Node 20+ and the Xcode Command Line Tools.
 
 ```bash
 pnpm install
-npx tauri build
-cp -R "src-tauri/target/release/bundle/macos/Narra.app" /Applications/
+rustup target add x86_64-apple-darwin      # once, for the universal build
+npx tauri build --target universal-apple-darwin --bundles app,dmg
+# → src-tauri/target/universal-apple-darwin/release/bundle/dmg/Narra_<version>_universal.dmg
 ```
 
 After changing `Code.gs`: paste it into the Apps Script editor, save, then
